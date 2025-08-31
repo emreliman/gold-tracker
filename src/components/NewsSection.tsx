@@ -42,7 +42,7 @@ export default function NewsSection() {
   };
 
   return (
-    <div className="bg-gray-900 rounded-xl shadow-xl p-6 border border-gray-700" id="news">
+    <div className="bg-[#221c11] rounded-xl shadow-xl p-6 border border-[#483c23]" id="news">
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-xl font-bold text-white">Piyasa Haberleri</h2>
         <span className="text-sm text-gray-400">Son 24 saat</span>
@@ -52,7 +52,7 @@ export default function NewsSection() {
         {mockNews.map((news) => (
           <div 
             key={news.id}
-            className="border-l-4 border-yellow-500 pl-4 py-2 hover:bg-gray-800 rounded-r-lg transition-colors cursor-pointer"
+            className="border-l-4 border-[#eca413] pl-4 py-2 hover:bg-[#332b19] rounded-r-lg transition-colors cursor-pointer"
           >
             <h3 className="font-semibold text-white text-sm mb-1">
               {news.title}
@@ -69,19 +69,19 @@ export default function NewsSection() {
       </div>
 
       {/* News API Status */}
-      <div className="mt-6 p-3 bg-blue-900/30 rounded-lg border border-blue-700">
+      <div className="mt-6 p-3 bg-[#332b19] rounded-lg border border-[#483c23]">
         <div className="flex items-center space-x-2">
-          <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
-          <span className="text-sm text-blue-300">
+          <div className="w-2 h-2 bg-[#eca413] rounded-full"></div>
+          <span className="text-sm text-[#eca413]">
             Canlı haberler yakında
           </span>
         </div>
-        <p className="text-xs text-blue-400 mt-1">
+        <p className="text-xs text-gray-400 mt-1">
           NewsAPI entegrasyonu geliştiriliyor
         </p>
       </div>
 
-      <button className="w-full mt-4 py-2 text-sm text-yellow-400 hover:bg-yellow-900/20 rounded-lg transition-colors border border-yellow-700">
+      <button className="w-full mt-4 py-2 text-sm text-[#eca413] hover:bg-[#332b19] rounded-lg transition-colors border border-[#483c23]">
         Tüm haberleri gör →
       </button>
     </div>
