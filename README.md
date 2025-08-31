@@ -1,36 +1,118 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Gold Tracker
 
-## Getting Started
+A Next.js application for tracking Turkish gold prices in real-time with AI-powered analysis.
 
-First, run the development server:
+## Features
+
+- 📊 Real-time gold price tracking (Gram, Quarter, Half, Ounce, Has gold)
+- 📈 24-hour price charts
+- 📰 Latest Turkish finance news
+- 🤖 AI-powered market analysis (Gemini)
+- 💾 Smart caching with Supabase (30-minute intervals)
+- 🛡️ Anti-ban scraping strategy
+- ⚡ Lightweight and Vercel-optimized
+
+## Tech Stack
+
+- **Frontend**: Next.js 15, React 19, TypeScript, TailwindCSS
+- **Backend**: Next.js API Routes
+- **Database**: Supabase (PostgreSQL)
+- **Scraping**: cheerio + node-fetch
+- **AI**: Google Gemini API
+- **Deployment**: Vercel
+
+## Quick Start
+
+### 1. Clone and Install
+
+```bash
+git clone <your-repo>
+cd gold-tracker
+npm install
+```
+
+### 2. Environment Setup
+
+Create `.env.local` file:
+
+```env
+# Supabase Configuration
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+
+# Optional APIs
+NEWS_API_KEY=your_newsapi_key
+GEMINI_API_KEY=your_gemini_api_key
+```
+
+### 3. Database Setup
+
+1. Create a new project at [Supabase](https://app.supabase.com/)
+2. Run the SQL script from `database/schema.sql` in Supabase SQL Editor
+3. Copy your project URL and anon key to `.env.local`
+
+### 4. Run Development Server
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Visit [http://localhost:3000](http://localhost:3000)
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## API Endpoints
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### Gold Prices
+```
+GET /api/gold
+```
 
-## Learn More
+Returns current gold prices with intelligent caching:
+- Checks database for fresh data (< 30 minutes)
+- If no fresh data, scrapes altin.doviz.com
+- Saves new data to database
+- Fallback to memory cache if database fails
 
-To learn more about Next.js, take a look at the following resources:
+### Sample Response
+```json
+{
+  "success": true,
+  "data": {
+    "gramGold": {
+      "type": "Gram Altın",
+      "buy": 4562.43,
+      "sell": 4563.13,
+      "change": 0.70,
+      "changePercent": 1.19
+    },
+    "quarterGold": {
+      "type": "Çeyrek Altın",
+      "buy": 7244.37,
+      "sell": 7408.02,
+      "changePercent": 0.74
+    }
+    // ... other gold types
+  },
+  "timestamp": "2025-08-31T..."
+}
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Deployment
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### Vercel Deployment
 
-## Deploy on Vercel
+1. Push to GitHub
+2. Connect to Vercel
+3. Add environment variables in Vercel dashboard
+4. Deploy
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### Environment Variables
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Make sure to add these in Vercel:
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- `NEWS_API_KEY` (optional)
+- `GEMINI_API_KEY` (optional)
+
+## License
+
+MIT
