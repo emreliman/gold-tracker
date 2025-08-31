@@ -149,32 +149,32 @@ export default function GoldPriceCard() {
 
   return (
     <div className="overflow-x-auto rounded-lg border border-[#483c23] bg-[#221c11]">
-      <table className="w-full text-left">
+      <table className="w-full text-left min-w-[640px]">
         <thead className="bg-[#332b19]">
           <tr>
-            <th className="px-6 py-4 text-left text-sm font-semibold text-white tracking-wider" scope="col">Birim</th>
-            <th className="px-6 py-4 text-left text-sm font-semibold text-white tracking-wider" scope="col">Alış Fiyatı</th>
-            <th className="px-6 py-4 text-left text-sm font-semibold text-white tracking-wider" scope="col">Satış Fiyatı</th>
-            <th className="px-6 py-4 text-left text-sm font-semibold text-white tracking-wider" scope="col">Değişim (24s)</th>
+            <th className="px-3 sm:px-6 py-3 sm:py-4 text-left text-xs sm:text-sm font-semibold text-white tracking-wider" scope="col">Birim</th>
+            <th className="px-3 sm:px-6 py-3 sm:py-4 text-left text-xs sm:text-sm font-semibold text-white tracking-wider" scope="col">Alış Fiyatı</th>
+            <th className="px-3 sm:px-6 py-3 sm:py-4 text-left text-xs sm:text-sm font-semibold text-white tracking-wider" scope="col">Satış Fiyatı</th>
+            <th className="px-3 sm:px-6 py-3 sm:py-4 text-left text-xs sm:text-sm font-semibold text-white tracking-wider" scope="col">Değişim (24s)</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-[#483c23]">
           {goldTypes.map((gold, index) => (
             <tr key={gold.key}>
-              <td className="px-6 py-5 whitespace-nowrap text-base font-medium text-white">{gold.name}</td>
-              <td className="px-6 py-5 whitespace-nowrap text-base text-gray-300">
+              <td className="px-3 sm:px-6 py-4 sm:py-5 whitespace-nowrap text-sm sm:text-base font-medium text-white">{gold.name}</td>
+              <td className="px-3 sm:px-6 py-4 sm:py-5 whitespace-nowrap text-sm sm:text-base text-gray-300">
                 {gold.currency}{formatPrice(gold.data.buy)}
               </td>
-              <td className="px-6 py-5 whitespace-nowrap text-base text-gray-300">
+              <td className="px-3 sm:px-6 py-4 sm:py-5 whitespace-nowrap text-sm sm:text-base text-gray-300">
                 {gold.currency}{formatPrice(gold.data.sell)}
               </td>
-              <td className={`px-6 py-5 whitespace-nowrap text-base ${getChangeColor(gold.data.changePercent)} flex items-center gap-1`}>
+              <td className={`px-3 sm:px-6 py-4 sm:py-5 whitespace-nowrap text-sm sm:text-base ${getChangeColor(gold.data.changePercent)} flex items-center gap-1`}>
                 {gold.data.changePercent >= 0 ? (
-                  <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                  <svg className="h-3 w-3 sm:h-4 sm:w-4" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
                     <path clipRule="evenodd" d="M5.293 9.707a1 1 0 010-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 01-1.414 1.414L11 7.414V15a1 1 0 11-2 0V7.414L6.707 9.707a1 1 0 01-1.414 0z" fillRule="evenodd"></path>
                   </svg>
                 ) : (
-                  <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                  <svg className="h-3 w-3 sm:h-4 sm:w-4" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
                     <path clipRule="evenodd" d="M14.707 10.293a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 111.414-1.414L9 12.586V5a1 1 0 012 0v7.586l2.293-2.293a1 1 0 011.414 0z" fillRule="evenodd"></path>
                   </svg>
                 )}
