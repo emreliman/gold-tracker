@@ -27,6 +27,14 @@ interface GoldPrice {
   updateTime?: string;
 }
 
+interface CurrencyRate {
+  type: string;
+  buy: number;
+  sell: number;
+  change: number;
+  changePercent: number;
+}
+
 async function scrapeAltinDoviz(): Promise<GoldData> {
   const randomUserAgent = USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)];
   
@@ -62,6 +70,9 @@ async function scrapeAltinDoviz(): Promise<GoldData> {
       source: 'altin.doviz.com'
     };
 
+    // USD/TRY kuru için
+    let usdTryRate: CurrencyRate = { type: 'USD/TRY', buy: 0, sell: 0, change: 0, changePercent: 0 };
+
     // Tablo satırlarını bul ve parse et
     $('tr').each((index, element) => {
       const $row = $(element);
@@ -91,6 +102,34 @@ async function scrapeAltinDoviz(): Promise<GoldData> {
         }
       }
     });
+
+    // Ana sayfadaki döviz ticker'ını da parse et (USD/TRY için)
+    $('.ticker').each((index, element) => {
+      const $ticker = $(element);
+      const tickerText = $ticker.text().toLowerCase();
+      
+      if (tickerText.includes('dolar')) {
+        const priceMatch = tickerText.match(/(\d+,\d+)/);
+        const changeMatch = tickerText.match(/%([+-]?\d+,\d+)/);
+        
+        if (priceMatch) {
+          const price = parseFloat(priceMatch[1].replace(',', '.'));
+          const changePercent = changeMatch ? parseFloat(changeMatch[1].replace(',', '.')) : 0;
+          const change = price * (changePercent / 100);
+          
+          usdTryRate = {
+            type: 'USD/TRY',
+            buy: price - 0.01, // Yaklaşık alış
+            sell: price,       // Ticker'daki fiyat genelde satış
+            change: change,
+            changePercent: changePercent
+          };
+        }
+      }
+    });
+
+    // USD/TRY'yi goldData'ya ekle
+    (goldData as any).usdTry = usdTryRate;
 
     // Scraping başarılı, memory cache'e de kaydet
     memoryCache = {
