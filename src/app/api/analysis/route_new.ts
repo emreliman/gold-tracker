@@ -19,27 +19,36 @@ let analysisCache: { data: any; timestamp: number } | null = null;
 const mockAnalysisData = {
   trend: "Yükseliş",
   confidence: 75,
-  summary: "Altın fiyatları Fed politika belirsizliği ve jeopolitik riskler nedeniyle yükseliş trendinde. USD/TRY paritesindeki artış da altın talebini destekliyor.",
+  summary: "Altın fiyatları Fed politika belirsizliği ve jeopolitik riskler nedeniyle yükseliş trendinde. Gram altın 4.563 TL seviyesinde güçlü destek buluyor. USD/TRY paritesindeki artış da altın talebini destekliyor. Kısa vadede 4.700 TL hedefi mümkün.",
   factors: [
-    { factor: "Fed Faiz Oranları", impact: "positive", weight: 85 },
-    { factor: "USD/TRY", impact: "positive", weight: 80 },
-    { factor: "TCMB Politikaları", impact: "neutral", weight: 70 }
+    { factor: "Fed Faiz Kararları", impact: "positive", weight: 85 },
+    { factor: "USD/TRY Paritesi", impact: "positive", weight: 80 },
+    { factor: "TCMB Politikaları", impact: "neutral", weight: 70 },
+    { factor: "Küresel Riskler", impact: "positive", weight: 80 },
+    { factor: "Türkiye Enflasyonu", impact: "positive", weight: 75 }
   ],
   predictions: {
     short_term: "4.600-4.700 TL bandında",
-    risk_level: "Orta"
+    medium_term: "Yükseliş devam edebilir",
+    risk_level: "Orta",
+    key_levels: "Destek: 4.500 TL, Direnç: 4.700 TL"
+  },
+  sentiment: {
+    bullish: 75,
+    neutral: 15,
+    bearish: 10
+  },
+  turkey_specific: {
+    inflation_hedge: "Yüksek enflasyon ortamında güçlü koruma sağlıyor",
+    currency_impact: "TL zayıflaması altın talebini artırıyor",
+    local_demand: "Güçlü, yatırımcı ilgisi yüksek"
   },
   lastUpdate: new Date().toISOString()
 };
 
-// Direct imports for internal API calls (more efficient)
-import { GET as getGoldData } from '../gold/route';
-import { GET as getNewsData } from '../news/route';
-
 async function fetchLatestNews() {
   try {
-    // Direct API call - no network request needed
-    const response = await getNewsData();
+    const response = await fetch('http://localhost:3001/api/news');
     const result = await response.json();
     
     if (result.success && result.data.length > 0) {
@@ -72,35 +81,75 @@ async function generateGeminiAnalysis(goldPriceData: any, newsData: any[]) {
       '• USD/TRY Kuru: Mevcut değil';
 
     const prompt = `
-Sen altın piyasası uzmanısın. Türkiye'deki altın piyasasını kısa ve net analiz et.
+Sen uzman bir altın piyasası analistisin ve Türkiye'deki altın piyasasını analiz ediyorsun.
 
-GÜNCEL DURUM:
-• Gram Altın: ${goldPriceData.current} TL (${goldPriceData.changePercent}%)
+MEVCUT DURUM:
+• Gram Altın Fiyatı: ${goldPriceData.current} TL
+• Günlük Değişim: ${goldPriceData.change} TL (${goldPriceData.changePercent}%)
+• Mevcut Trend: ${currentTrend}
 ${usdTryInfo}
 
-SON HABERLER:
+SON EKONOMİ HABERLERİ (ABD ve Küresel):
 ${newsHeadlines}
 
-ARAŞTIR: TCMB faiz oranları, Fed politikaları, USD/TRY beklentileri, Türkiye enflasyonu.
+GÜNCEL VERİ ARAŞTIRMASI GEREKEN FAKTÖRLER:
+• TCMB güncel faiz oranları ve son kararları
+• Fed'in son faiz oranı ve yaklaşan toplantı tarihleri  
+• Türkiye'nin güncel enflasyon oranı (son TÜIK verisi)
+• ABD'nin güncel enflasyon verisi (CPI/PCE)
+• Dolar endeksi (DXY) son değeri
+• Türkiye'deki güncel jeopolitik durumlar
+• Küresel risk iştahı ve güvenli liman talebi
 
-SADECE bu JSON formatında yanıt ver (kısa ve net):
+TÜRKİYE'YE ÖZGÜ FAKTÖRLER:
+• USD/TRY döviz kuru etkisi ve beklentiler
+• TCMB faiz politikaları ve rezerv durumu
+• Türkiye'deki enflasyon oranları ve beklentiler
+• Jeopolitik konumu ve bölgesel riskler
+• Türk vatandaşlarının altına yönelim trendi
+• Vergi düzenlemeleri ve mevzuat değişiklikleri
+
+KÜRESEL FAKTÖRLER:
+• Fed faiz oranları ve politika beklentileri
+• ABD enflasyon verileri ve Fed'in hedefleri
+• Küresel jeopolitik riskler ve çatışmalar
+• Dolar endeksi (DXY) performansı ve trend
+• Merkez bankalarının altın rezerv politikaları
+
+Yukarıdaki güncel veri araştırması gereken faktörleri internetten araştırarak güncel bilgileri topla ve bu kapsamlı bilgiyi kullanarak Türkiye'deki yatırımcılar için profesyonel bir analiz yap. 
+
+SADECE aşağıdaki JSON formatında yanıt ver:
 
 {
   "trend": "Yükseliş|Düşüş|Yatay",
-  "confidence": 0-100,
-  "summary": "KISA özet (100 kelime max, güncel verilerle)",
+  "confidence": 0-100 arası güven skoru,
+  "summary": "Türkiye odaklı kısa analiz özeti (200 kelime max, güncel verilerle desteklenmiş)",
   "factors": [
     {"factor": "Fed Faiz Oranları", "impact": "positive|negative|neutral", "weight": 0-100},
-    {"factor": "USD/TRY", "impact": "positive|negative|neutral", "weight": 0-100},
-    {"factor": "TCMB Politikaları", "impact": "positive|negative|neutral", "weight": 0-100}
+    {"factor": "USD/TRY Paritesi", "impact": "positive|negative|neutral", "weight": 0-100},
+    {"factor": "TCMB Politikaları", "impact": "positive|negative|neutral", "weight": 0-100},
+    {"factor": "Küresel Riskler", "impact": "positive|negative|neutral", "weight": 0-100},
+    {"factor": "Türkiye Enflasyonu", "impact": "positive|negative|neutral", "weight": 0-100}
   ],
   "predictions": {
-    "short_term": "1-2 hafta tahmini",
-    "risk_level": "Düşük|Orta|Yüksek"
+    "short_term": "1-2 haftalık tahmin (TL bazında, güncel verilere dayalı)",
+    "medium_term": "1-3 aylık tahmin (güncel ekonomik göstergelerle)", 
+    "risk_level": "Düşük|Orta|Yüksek",
+    "key_levels": "Önemli destek ve direnç seviyeleri (güncel teknik analiz)"
+  },
+  "sentiment": {
+    "bullish": 0-100,
+    "neutral": 0-100,
+    "bearish": 0-100
+  },
+  "turkey_specific": {
+    "inflation_hedge": "Enflasyona karşı koruma değerlendirmesi (güncel enflasyon verisiyle)",
+    "currency_impact": "TL zayıflaması etkisi (güncel USD/TRY ile)",
+    "local_demand": "Yerel talep durumu (güncel piyasa koşullarıyla)"
   }
 }
 
-SADECE JSON, başka açıklama yok.`;
+SADECE JSON yanıtı ver, başka açıklama ekleme.`;
 
     // Configure generation with grounding
     const config = {
@@ -108,7 +157,7 @@ SADECE JSON, başka açıklama yok.`;
     };
 
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+      model: "gemini-2.0-flash-exp",
       contents: prompt,
       config: config,
     });
@@ -137,9 +186,7 @@ SADECE JSON, başka açıklama yok.`;
 
 async function getCurrentGoldPrice() {
   try {
-    // Direct API call - no network request needed
-    const mockRequest = new Request('http://localhost:3000/api/gold');
-    const response = await getGoldData(mockRequest);
+    const response = await fetch('http://localhost:3001/api/gold');
     const result = await response.json();
     
     if (result.success && result.data.gramGold) {
@@ -175,17 +222,8 @@ async function getCurrentGoldPrice() {
   }
 }
 
-export async function GET(request: Request) {
+export async function GET() {
   try {
-    // Check for cache clear parameter
-    const url = new URL(request.url);
-    const clearCache = url.searchParams.get('clearCache') === 'true';
-    
-    if (clearCache) {
-      analysisCache = null;
-      console.log('Cache cleared manually');
-    }
-
     // Check cache first
     if (analysisCache && Date.now() - analysisCache.timestamp < CACHE_DURATION_MS) {
       console.log('Returning cached AI analysis');

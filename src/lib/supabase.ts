@@ -75,9 +75,42 @@ export interface GoldData {
 // 30 dakika = 30 * 60 * 1000 milliseconds
 export const CACHE_DURATION_MS = 30 * 60 * 1000
 
-export async function getLatestGoldPrice(): Promise<GoldPriceRecord | null> {
+export async function clearGoldPriceCache(): Promise<boolean> {
+  if (!supabase) {
+    console.log('Supabase not configured, skipping cache clear');
+    return false;
+  }
+
+  try {
+    // Delete all records older than 1 minute to force refresh
+    const oneMinuteAgo = new Date(Date.now() - 60 * 1000).toISOString()
+    
+    const { error } = await supabase
+      .from('gold_prices')
+      .delete()
+      .lt('created_at', new Date().toISOString()) // Delete all existing records
+
+    if (error) {
+      console.error('Error clearing cache:', error)
+      return false
+    }
+
+    console.log('Gold price cache cleared')
+    return true
+  } catch (error) {
+    console.error('Error clearing cache:', error)
+    return false
+  }
+}
+
+export async function getLatestGoldPrice(skipCache = false): Promise<GoldPriceRecord | null> {
   if (!supabase) {
     console.log('Supabase not configured, skipping database check');
+    return null;
+  }
+
+  if (skipCache) {
+    console.log('Skipping cache, forcing fresh data');
     return null;
   }
 

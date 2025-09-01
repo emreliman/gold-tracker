@@ -4,6 +4,7 @@ import {
   getLatestGoldPrice, 
   saveGoldPrice, 
   convertRecordToGoldData,
+  clearGoldPriceCache,
   type GoldData 
 } from '@/lib/supabase';
 
@@ -16,7 +17,7 @@ const USER_AGENTS = [
 
 // In-memory cache backup (if Supabase fails)
 let memoryCache: { data: GoldData; timestamp: number } | null = null;
-const MEMORY_CACHE_DURATION = 15 * 60 * 1000; // 15 dakika
+const MEMORY_CACHE_DURATION = 5 * 60 * 1000; // 5 dakika
 
 interface GoldPrice {
   type: string;
@@ -59,13 +60,29 @@ async function scrapeAltinDoviz(): Promise<GoldData> {
     const html = await response.text();
     const $ = cheerio.load(html);
 
-    // Altın fiyatları tablosunu parse et
-    const goldData: GoldData = {
+    // Altın fiyatları tablosunu parse et - Tüm altın türleri
+    const goldData: any = {
+      // Temel altın türleri
       gramGold: { type: 'Gram Altın', buy: 0, sell: 0, change: 0, changePercent: 0 },
+      gramHasGold: { type: 'Gram Has Altın', buy: 0, sell: 0, change: 0, changePercent: 0 },
+      onsGold: { type: 'Ons Altın', buy: 0, sell: 0, change: 0, changePercent: 0 },
+      
+      // Çeyrek sistemleri
       quarterGold: { type: 'Çeyrek Altın', buy: 0, sell: 0, change: 0, changePercent: 0 },
       halfGold: { type: 'Yarım Altın', buy: 0, sell: 0, change: 0, changePercent: 0 },
-      onsGold: { type: 'Ons Altın', buy: 0, sell: 0, change: 0, changePercent: 0 },
-      hasGold: { type: 'Has Altın', buy: 0, sell: 0, change: 0, changePercent: 0 },
+      fullGold: { type: 'Tam Altın', buy: 0, sell: 0, change: 0, changePercent: 0 },
+      
+      // Cumhuriyet ve klasik altınlar
+      cumhuriyetGold: { type: 'Cumhuriyet Altını', buy: 0, sell: 0, change: 0, changePercent: 0 },
+      ataGold: { type: 'Ata Altın', buy: 0, sell: 0, change: 0, changePercent: 0 },
+      ikibuçukGold: { type: 'İkibuçuk Altın', buy: 0, sell: 0, change: 0, changePercent: 0 },
+      beşliGold: { type: 'Beşli Altın', buy: 0, sell: 0, change: 0, changePercent: 0 },
+      
+      // Bilezikler
+      bilezik14: { type: '14 Ayar Bilezik', buy: 0, sell: 0, change: 0, changePercent: 0 },
+      bilezik18: { type: '18 Ayar Bilezik', buy: 0, sell: 0, change: 0, changePercent: 0 },
+      bilezik22: { type: '22 Ayar Bilezik', buy: 0, sell: 0, change: 0, changePercent: 0 },
+      
       lastUpdate: new Date().toISOString(),
       source: 'altin.doviz.com'
     };
@@ -73,49 +90,103 @@ async function scrapeAltinDoviz(): Promise<GoldData> {
     // USD/TRY kuru için
     let usdTryRate: CurrencyRate = { type: 'USD/TRY', buy: 0, sell: 0, change: 0, changePercent: 0 };
 
-    // Tablo satırlarını bul ve parse et
-    $('tr').each((index, element) => {
+    // Tablo satırlarını bul ve parse et - Daha spesifik selectors
+    $('table tr, .table tr, [class*="table"] tr').each((index, element) => {
       const $row = $(element);
       const cells = $row.find('td');
       
-      if (cells.length >= 4) {
+      if (cells.length >= 3) { // En az 3 cell olmalı (isim, alış, satış)
         const name = $row.find('a').text().trim().toLowerCase();
+        
+        // Eğer link yoksa, ilk cell'deki text'i al
+        const displayName = name || $(cells[0]).text().trim().toLowerCase();
+        
+        if (!displayName) return; // Boş satır atla
+        
         const buyText = $(cells[1]).text().replace(/[^\d,]/g, '').replace(',', '.');
         const sellText = $(cells[2]).text().replace(/[^\d,]/g, '').replace(',', '.');
-        const changeText = $(cells[3]).text().replace(/[^\d,%\-]/g, '');
+        const changeText = cells.length >= 4 ? $(cells[3]).text().trim() : '';
         
         const buy = parseFloat(buyText) || 0;
         const sell = parseFloat(sellText) || 0;
-        const changePercent = parseFloat(changeText.replace('%', '')) || 0;
-        const change = sell - buy;
 
-        if (name.includes('gram altın')) {
+        // Parse change percentage and amount from text like "%0,08 (3,65)" or "%0,08"
+        let changePercent = 0;
+        let change = 0;
+        
+        if (changeText) {
+          // Extract percentage - handle both %0,08 and %-0,08 formats
+          const percentMatch = changeText.match(/([+-]?\d+[,.]?\d*)/);
+          if (percentMatch) {
+            changePercent = parseFloat(percentMatch[1].replace(',', '.')) || 0;
+          }
+          
+          // Extract amount in parentheses - handle both (3,65) and (-3,65) formats  
+          const amountMatch = changeText.match(/\(([+-]?\d+[,.]?\d*)\)/);
+          if (amountMatch) {
+            change = parseFloat(amountMatch[1].replace(',', '.')) || 0;
+          } else {
+            // If no amount in parentheses, calculate from percentage
+            change = (sell * changePercent) / 100;
+          }
+        }        // Altın türlerini tanımla
+        const goldDataItem = { type: displayName, buy, sell, change, changePercent };
+        
+        if (displayName.includes('gram altın') && !displayName.includes('has')) {
           goldData.gramGold = { type: 'Gram Altın', buy, sell, change, changePercent };
-        } else if (name.includes('çeyrek altın')) {
-          goldData.quarterGold = { type: 'Çeyrek Altın', buy, sell, change, changePercent };
-        } else if (name.includes('yarım altın')) {
-          goldData.halfGold = { type: 'Yarım Altın', buy, sell, change, changePercent };
-        } else if (name.includes('ons altın')) {
+        } else if (displayName.includes('gram has altın') || displayName.includes('has altın')) {
+          goldData.gramHasGold = { type: 'Gram Has Altın', buy, sell, change, changePercent };
+        } else if (displayName.includes('ons altın')) {
           goldData.onsGold = { type: 'Ons Altın', buy, sell, change, changePercent };
-        } else if (name.includes('gram has altın')) {
-          goldData.hasGold = { type: 'Has Altın', buy, sell, change, changePercent };
+        } else if (displayName.includes('çeyrek altın')) {
+          goldData.quarterGold = { type: 'Çeyrek Altın', buy, sell, change, changePercent };
+        } else if (displayName.includes('yarım altın')) {
+          goldData.halfGold = { type: 'Yarım Altın', buy, sell, change, changePercent };
+        } else if (displayName.includes('tam altın')) {
+          goldData.fullGold = { type: 'Tam Altın', buy, sell, change, changePercent };
+        } else if (displayName.includes('cumhuriyet altın')) {
+          goldData.cumhuriyetGold = { type: 'Cumhuriyet Altını', buy, sell, change, changePercent };
+        } else if (displayName.includes('ata altın')) {
+          goldData.ataGold = { type: 'Ata Altın', buy, sell, change, changePercent };
+        } else if (displayName.includes('ikibuçuk') || displayName.includes('2,5')) {
+          goldData.ikibuçukGold = { type: 'İkibuçuk Altın', buy, sell, change, changePercent };
+        } else if (displayName.includes('beşli') || displayName.includes('5 li')) {
+          goldData.beşliGold = { type: 'Beşli Altın', buy, sell, change, changePercent };
+        } else if (displayName.includes('14 ayar') || displayName.includes('14ayar')) {
+          goldData.bilezik14 = { type: '14 Ayar Bilezik', buy, sell, change, changePercent };
+        } else if (displayName.includes('18 ayar') || displayName.includes('18ayar')) {
+          goldData.bilezik18 = { type: '18 Ayar Bilezik', buy, sell, change, changePercent };
+        } else if (displayName.includes('22 ayar') || displayName.includes('22ayar')) {
+          goldData.bilezik22 = { type: '22 Ayar Bilezik', buy, sell, change, changePercent };
+        }
+        
+        // Debug: Hangi altın türleri bulundu
+        if (buy > 0 || sell > 0) {
+          console.log(`Found: ${displayName} -> ${changePercent}% (${change})`);
         }
       }
     });
 
     // Ana sayfadaki döviz ticker'ını da parse et (USD/TRY için)
-    $('.ticker').each((index, element) => {
+    $('.ticker, .header-ticker, [class*="ticker"]').each((index, element) => {
       const $ticker = $(element);
-      const tickerText = $ticker.text().toLowerCase();
+      const tickerText = $ticker.text();
       
-      if (tickerText.includes('dolar')) {
-        const priceMatch = tickerText.match(/(\d+,\d+)/);
-        const changeMatch = tickerText.match(/%([+-]?\d+,\d+)/);
+      // Format: "DOLAR 41,1457 %0,01 (0,0041)" veya benzeri
+      if (tickerText.toLowerCase().includes('dolar')) {
+        console.log('Found USD ticker:', tickerText);
+        
+        // Fiyat parse et
+        const priceMatch = tickerText.match(/(\d+[,.]?\d*)/);
+        // Yüzde parse et  
+        const percentMatch = tickerText.match(/%([+-]?\d+[,.]?\d*)/);
+        // Miktar parse et
+        const amountMatch = tickerText.match(/\(([+-]?\d+[,.]?\d*)\)/);
         
         if (priceMatch) {
           const price = parseFloat(priceMatch[1].replace(',', '.'));
-          const changePercent = changeMatch ? parseFloat(changeMatch[1].replace(',', '.')) : 0;
-          const change = price * (changePercent / 100);
+          const changePercent = percentMatch ? parseFloat(percentMatch[1].replace(',', '.')) : 0;
+          const change = amountMatch ? parseFloat(amountMatch[1].replace(',', '.')) : 0;
           
           usdTryRate = {
             type: 'USD/TRY',
@@ -124,6 +195,7 @@ async function scrapeAltinDoviz(): Promise<GoldData> {
             change: change,
             changePercent: changePercent
           };
+          console.log('Parsed USD/TRY:', usdTryRate);
         }
       }
     });
@@ -144,31 +216,36 @@ async function scrapeAltinDoviz(): Promise<GoldData> {
   }
 }
 
-async function getGoldPrices(): Promise<GoldData> {
+async function getGoldPrices(clearCache = false): Promise<GoldData> {
   try {
-    // Önce database'den kontrol et (30 dakikalık cache)
-    const latestRecord = await getLatestGoldPrice();
-    
-    if (latestRecord) {
-      console.log('Returning cached data from database');
-      return convertRecordToGoldData(latestRecord);
+    if (clearCache) {
+      console.log('Clearing memory cache as requested');
+      memoryCache = null;
     }
 
-    console.log('No fresh data in database, scraping...');
+    // Memory cache kontrolü (15 dakika)
+    if (memoryCache && Date.now() - memoryCache.timestamp < MEMORY_CACHE_DURATION) {
+      console.log('Returning data from memory cache');
+      return {
+        ...memoryCache.data,
+        source: 'memory cache',
+        lastUpdate: new Date(memoryCache.timestamp).toISOString()
+      };
+    }
+
+    console.log('No fresh data in memory cache, scraping...');
     
     // Database'de fresh data yok, scrape et
     const scrapedData = await scrapeAltinDoviz();
     
-    // Database'e kaydet
-    const savedRecord = await saveGoldPrice(scrapedData);
+    // Sadece memory cache'e kaydet (database bypass)
+    memoryCache = {
+      data: scrapedData,
+      timestamp: Date.now()
+    };
     
-    if (savedRecord) {
-      console.log('Data scraped and saved to database');
-      return convertRecordToGoldData(savedRecord);
-    } else {
-      console.log('Failed to save to database, returning scraped data');
-      return scrapedData;
-    }
+    console.log('Data scraped and saved to memory cache');
+    return scrapedData;
     
   } catch (error) {
     console.error('Error in getGoldPrices:', error);
@@ -187,9 +264,16 @@ async function getGoldPrices(): Promise<GoldData> {
   }
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    const goldData = await getGoldPrices();
+    const { searchParams } = new URL(request.url);
+    const clearCache = searchParams.get('clearCache') === 'true';
+    
+    console.log('Gold API called with clearCache:', clearCache);
+    
+    const goldData = await getGoldPrices(clearCache);
+    
+    console.log('Gold API response data:', JSON.stringify(goldData, null, 2));
     
     return NextResponse.json({
       success: true,

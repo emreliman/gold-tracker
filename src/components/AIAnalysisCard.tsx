@@ -15,11 +15,11 @@ interface AnalysisData {
   factors: AnalysisFactor[];
   predictions: {
     short_term: string;
-    medium_term: string;
     risk_level: string;
+    medium_term?: string;
     key_levels?: string;
   };
-  sentiment: {
+  sentiment?: {
     bullish: number;
     neutral: number;
     bearish: number;
@@ -210,20 +210,38 @@ export default function AIAnalysisCard() {
           </div>
 
           {/* Sentiment Indicators */}
-          <div className="grid grid-cols-3 gap-3 mb-4">
-            <div className="text-center p-3 bg-green-900/30 rounded-lg border border-green-600">
-              <div className="text-lg font-bold text-green-400">Yükseliş</div>
-              <div className="text-xs text-green-300">{analysis.sentiment.bullish}%</div>
+          {analysis.sentiment ? (
+            <div className="grid grid-cols-3 gap-3 mb-4">
+              <div className="text-center p-3 bg-green-900/30 rounded-lg border border-green-600">
+                <div className="text-lg font-bold text-green-400">Yükseliş</div>
+                <div className="text-xs text-green-300">{analysis.sentiment.bullish}%</div>
+              </div>
+              <div className="text-center p-3 bg-[#332b19] rounded-lg border border-[#483c23]">
+                <div className="text-lg font-bold text-gray-400">Denge</div>
+                <div className="text-xs text-gray-300">{analysis.sentiment.neutral}%</div>
+              </div>
+              <div className="text-center p-3 bg-red-900/30 rounded-lg border border-red-600">
+                <div className="text-lg font-bold text-red-400">Düşüş</div>
+                <div className="text-xs text-red-300">{analysis.sentiment.bearish}%</div>
+              </div>
             </div>
-            <div className="text-center p-3 bg-[#332b19] rounded-lg border border-[#483c23]">
-              <div className="text-lg font-bold text-gray-400">Denge</div>
-              <div className="text-xs text-gray-300">{analysis.sentiment.neutral}%</div>
+          ) : (
+            <div className="grid grid-cols-2 gap-3 mb-4">
+              <div className="text-center p-3 bg-[#332b19] rounded-lg border border-[#483c23]">
+                <div className="text-lg font-bold text-[#eca413]">Güven Skoru</div>
+                <div className="text-xs text-[#eca413]">{analysis.confidence}%</div>
+              </div>
+              <div className="text-center p-3 bg-[#332b19] rounded-lg border border-[#483c23]">
+                <div className="text-lg font-bold text-[#eca413]">Risk</div>
+                <div className={`text-xs ${
+                  analysis.predictions.risk_level === 'Yüksek' ? 'text-red-400' :
+                  analysis.predictions.risk_level === 'Orta' ? 'text-[#eca413]' : 'text-green-400'
+                }`}>
+                  {analysis.predictions.risk_level}
+                </div>
+              </div>
             </div>
-            <div className="text-center p-3 bg-red-900/30 rounded-lg border border-red-600">
-              <div className="text-lg font-bold text-red-400">Düşüş</div>
-              <div className="text-xs text-red-300">{analysis.sentiment.bearish}%</div>
-            </div>
-          </div>
+          )}
 
           {/* Key Factors */}
           {analysis.factors && analysis.factors.length > 0 && (
@@ -251,10 +269,12 @@ export default function AIAnalysisCard() {
                 <span className="text-gray-400">Kısa Vade:</span>
                 <span className="text-gray-300">{analysis.predictions.short_term}</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-gray-400">Orta Vade:</span>
-                <span className="text-gray-300">{analysis.predictions.medium_term}</span>
-              </div>
+              {analysis.predictions.medium_term && (
+                <div className="flex justify-between">
+                  <span className="text-gray-400">Orta Vade:</span>
+                  <span className="text-gray-300">{analysis.predictions.medium_term}</span>
+                </div>
+              )}
               <div className="flex justify-between">
                 <span className="text-gray-400">Risk Seviyesi:</span>
                 <span className={`${
