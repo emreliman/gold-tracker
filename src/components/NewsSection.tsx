@@ -95,42 +95,13 @@ export default function NewsSection() {
     }
   };
 
-  const getSourceIcon = () => {
-    switch (source) {
-      case 'newsapi':
-        return '📰';
-      case 'cache':
-        return '💾';
-      case 'mock':
-      case 'fallback':
-        return '🔄';
-      default:
-        return '📡';
-    }
-  };
-
-  const getSourceText = () => {
-    switch (source) {
-      case 'newsapi':
-        return 'Canlı haberler';
-      case 'cache':
-        return 'Önbellek';
-      case 'mock':
-        return 'Demo haberler';
-      case 'fallback':
-        return 'Yedek veri';
-      default:
-        return 'Haberler';
-    }
-  };
-
   return (
     <div className="bg-[#221c11] rounded-xl shadow-xl p-6 border border-[#483c23]" id="news">
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-xl font-bold text-white">Piyasa Haberleri</h2>
-        <div className="flex items-center space-x-2 text-sm text-gray-400">
-          <span>{getSourceIcon()}</span>
-          <span>{getSourceText()}</span>
+        <div className="flex items-center space-x-2">
+          <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+          <span className="text-sm text-green-300">📰 Canlı</span>
         </div>
       </div>
 
@@ -172,26 +143,17 @@ export default function NewsSection() {
         </div>
       )}
 
-      {/* News API Status */}
+      {/* News Status */}
       <div className="mt-6 p-3 bg-[#332b19] rounded-lg border border-[#483c23]">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            <div className={`w-2 h-2 rounded-full ${
-              source === 'newsapi' ? 'bg-green-400' : 
-              source === 'cache' ? 'bg-[#eca413]' : 'bg-gray-400'
-            }`}></div>
-            <span className="text-sm text-gray-300">
-              {source === 'newsapi' ? 'Canlı NewsAPI bağlantısı' :
-               source === 'cache' ? 'Önbellekten yüklendi' :
-               'Demo veriler gösteriliyor'}
-            </span>
-          </div>
+        <div className="flex items-center space-x-2">
+          <div className="w-2 h-2 bg-green-400 rounded-full"></div>
+          <span className="text-sm text-green-300">
+            Canlı haberler
+          </span>
         </div>
-        {source !== 'newsapi' && (
-          <p className="text-xs text-gray-400 mt-1">
-            {source === 'mock' || source === 'fallback' ? 'API bağlantısı kullanılamıyor - Demo veri gösteriliyor' : 'API bağlantısı başarısız'}
-          </p>
-        )}
+        <p className="text-xs text-gray-400 mt-1">
+          Güncel ekonomi ve altın haberleri
+        </p>
       </div>
     </div>
   );

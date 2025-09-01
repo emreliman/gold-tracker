@@ -219,11 +219,20 @@ async function scrapeAltinDoviz(): Promise<GoldData> {
 async function getGoldPrices(clearCache = false): Promise<GoldData> {
   try {
     if (clearCache) {
-      console.log('Clearing memory cache as requested');
+      console.log('Clearing both memory and database cache as requested');
       memoryCache = null;
+      await clearGoldPriceCache();
     }
 
-    // Memory cache kontrolü (15 dakika)
+    // Önce database'den kontrol et (30 dakikalık cache)
+    const latestRecord = await getLatestGoldPrice();
+    
+    if (latestRecord) {
+      console.log('Returning cached data from database');
+      return convertRecordToGoldData(latestRecord);
+    }
+
+    // Database'de fresh data yok, memory cache kontrol et
     if (memoryCache && Date.now() - memoryCache.timestamp < MEMORY_CACHE_DURATION) {
       console.log('Returning data from memory cache');
       return {
@@ -233,19 +242,27 @@ async function getGoldPrices(clearCache = false): Promise<GoldData> {
       };
     }
 
-    console.log('No fresh data in memory cache, scraping...');
+    console.log('No fresh data in cache, scraping...');
     
     // Database'de fresh data yok, scrape et
     const scrapedData = await scrapeAltinDoviz();
     
-    // Sadece memory cache'e kaydet (database bypass)
+    // Database'e kaydet
+    const savedRecord = await saveGoldPrice(scrapedData);
+    
+    // Memory cache'e de kaydet (backup)
     memoryCache = {
       data: scrapedData,
       timestamp: Date.now()
     };
     
-    console.log('Data scraped and saved to memory cache');
-    return scrapedData;
+    if (savedRecord) {
+      console.log('Data scraped and saved to database');
+      return convertRecordToGoldData(savedRecord);
+    } else {
+      console.log('Failed to save to database, returning scraped data');
+      return scrapedData;
+    }
     
   } catch (error) {
     console.error('Error in getGoldPrices:', error);

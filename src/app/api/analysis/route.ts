@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { GoogleGenAI } from "@google/genai";
+import { getTodaysAnalysis, saveAnalysisCache } from '@/lib/supabase';
 
 // Gemini AI client with grounding
 const ai = new GoogleGenAI({});
@@ -9,11 +10,11 @@ const groundingTool = {
   googleSearch: {},
 };
 
-// Cache duration: 1 hour
-const CACHE_DURATION_MS = 60 * 60 * 1000;
+// Cache duration: 1 hour (for fallback memory cache)
+const MEMORY_CACHE_DURATION_MS = 60 * 60 * 1000;
 
-// In-memory cache for AI analysis
-let analysisCache: { data: any; timestamp: number } | null = null;
+// In-memory cache backup (if database fails)
+let memoryCache: { data: any; timestamp: number } | null = null;
 
 // Mock analysis data (fallback when API unavailable)
 const mockAnalysisData = {
@@ -38,8 +39,9 @@ import { GET as getNewsData } from '../news/route';
 
 async function fetchLatestNews() {
   try {
-    // Direct API call - no network request needed
-    const response = await getNewsData();
+    // Create mock request for internal API call
+    const mockRequest = new Request('http://localhost:3000/api/news');
+    const response = await getNewsData(mockRequest);
     const result = await response.json();
     
     if (result.success && result.data.length > 0) {
@@ -182,19 +184,33 @@ export async function GET(request: Request) {
     const clearCache = url.searchParams.get('clearCache') === 'true';
     
     if (clearCache) {
-      analysisCache = null;
-      console.log('Cache cleared manually');
+      memoryCache = null;
+      console.log('Memory cache cleared manually');
     }
 
-    // Check cache first
-    if (analysisCache && Date.now() - analysisCache.timestamp < CACHE_DURATION_MS) {
-      console.log('Returning cached AI analysis');
+    // Önce database'den bugünkü analizi kontrol et
+    if (!clearCache) {
+      const todaysAnalysis = await getTodaysAnalysis();
+      if (todaysAnalysis) {
+        console.log('Returning cached analysis from database');
+        return NextResponse.json({
+          success: true,
+          data: todaysAnalysis,
+          source: 'database_cache',
+          timestamp: new Date().toISOString()
+        });
+      }
+    }
+
+    // Database'de bugünkü analiz yok, memory cache kontrol et
+    if (memoryCache && Date.now() - memoryCache.timestamp < MEMORY_CACHE_DURATION_MS) {
+      console.log('Returning cached AI analysis from memory');
       return NextResponse.json({
         success: true,
-        data: analysisCache.data,
-        source: 'cache',
+        data: memoryCache.data,
+        source: 'memory_cache',
         timestamp: new Date().toISOString(),
-        cacheAge: Math.floor((Date.now() - analysisCache.timestamp) / 1000 / 60) // minutes
+        cacheAge: Math.floor((Date.now() - memoryCache.timestamp) / 1000 / 60) // minutes
       });
     }
 
@@ -209,8 +225,16 @@ export async function GET(request: Request) {
     // Generate analysis with grounding
     const analysisData = await generateGeminiAnalysis(currentPrice, newsData || []);
     
-    // Update cache
-    analysisCache = {
+    // Database'e kaydet (günlük cache)
+    const dbSaved = await saveAnalysisCache(
+      analysisData, 
+      currentPrice, 
+      newsData || [], 
+      'gemini'
+    );
+    
+    // Memory cache'e de kaydet (backup)
+    memoryCache = {
       data: analysisData,
       timestamp: Date.now()
     };
@@ -224,21 +248,32 @@ export async function GET(request: Request) {
         goldPrice: currentPrice.current,
         usdTryRate: currentPrice.usdTry?.sell || 'N/A',
         newsCount: newsData?.length || 0
-      }
+      },
+      dbCached: dbSaved
     });
 
   } catch (error) {
     console.error('AI Analysis API error:', error);
     
-    // Return cached data if available, otherwise mock data
-    const fallbackData = analysisCache?.data || mockAnalysisData;
+    // Son çare: Memory cache'den dön
+    if (memoryCache && Date.now() - memoryCache.timestamp < MEMORY_CACHE_DURATION_MS) {
+      console.log('Returning data from memory cache as fallback');
+      return NextResponse.json({
+        success: false,
+        data: memoryCache.data,
+        source: 'memory_fallback',
+        error: error instanceof Error ? error.message : 'Unknown error',
+        timestamp: new Date().toISOString()
+      }, { status: 200 });
+    }
     
+    // En son çare: Mock data
     return NextResponse.json({
       success: false,
-      data: fallbackData,
-      source: 'fallback',
+      data: mockAnalysisData,
+      source: 'mock_fallback',
       error: error instanceof Error ? error.message : 'Unknown error',
       timestamp: new Date().toISOString()
-    }, { status: 200 }); // Return 200 with fallback data
+    }, { status: 200 });
   }
 }

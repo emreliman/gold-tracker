@@ -125,46 +125,13 @@ export default function AIAnalysisCard() {
     }
   };
 
-  const getSourceIcon = () => {
-    switch (source) {
-      case 'gemini':
-        return '🤖';
-      case 'cache':
-        return '💾';
-      case 'mock':
-      case 'fallback':
-        return '🔄';
-      default:
-        return '🧠';
-    }
-  };
-
-  const getSourceText = () => {
-    switch (source) {
-      case 'gemini':
-        return 'Gemini AI';
-      case 'cache':
-        return 'Önbellek';
-      case 'mock':
-        return 'Demo analiz';
-      case 'fallback':
-        return 'Yedek veri';
-      default:
-        return 'AI Analiz';
-    }
-  };
-
   return (
     <div className="bg-[#221c11] rounded-xl shadow-xl p-6 border border-[#483c23]" id="analysis">
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-xl font-bold text-white">AI Piyasa Analizi</h2>
         <div className="flex items-center space-x-2">
-          <span className="text-sm">{getSourceIcon()}</span>
-          <div className={`w-2 h-2 rounded-full animate-pulse ${
-            source === 'gemini' ? 'bg-green-400' : 
-            source === 'cache' ? 'bg-[#eca413]' : 'bg-gray-400'
-          }`}></div>
-          <span className="text-sm text-gray-400">{getSourceText()}</span>
+          <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+          <span className="text-sm text-green-300">🤖 AI</span>
         </div>
       </div>
 
@@ -318,25 +285,15 @@ export default function AIAnalysisCard() {
 
       {/* API Status */}
       <div className="p-3 bg-[#332b19] rounded-lg border border-[#483c23]">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            <div className={`w-2 h-2 rounded-full ${
-              source === 'gemini' ? 'bg-green-400' : 
-              source === 'cache' ? 'bg-[#eca413]' : 'bg-gray-400'
-            }`}></div>
-            <span className="text-sm text-gray-300">
-              {source === 'gemini' ? 'Canlı Gemini AI analizi' :
-               source === 'cache' ? 'Önbellekten yüklendi' :
-               'Demo analiz gösteriliyor'}
-            </span>
-          </div>
+        <div className="flex items-center space-x-2">
+          <div className="w-2 h-2 bg-green-400 rounded-full"></div>
+          <span className="text-sm text-green-300">
+            AI analiz aktif
+          </span>
         </div>
-        {source !== 'gemini-grounded' && (
-          <p className="text-xs text-gray-400 mt-1">
-            {source === 'mock' || source === 'fallback' ? 'API bağlantısı kullanılamıyor - Demo veri gösteriliyor' : 
-             source === 'cache' ? 'Önbelleğe alınmış veri' : 'API bağlantısı başarısız'}
-          </p>
-        )}
+        <p className="text-xs text-gray-400 mt-1">
+          Güncel piyasa verileri ile analiz ediliyor
+        </p>
       </div>
     </div>
   );

@@ -1,14 +1,15 @@
 import { NextResponse } from 'next/server';
+import { getTodaysNews, saveNewsCache } from '@/lib/supabase';
 
 // NewsAPI configuration
 const NEWS_API_KEY = process.env.NEWS_API_KEY;
 const NEWS_API_URL = 'https://newsapi.org/v2/top-headlines';
 
-// Cache duration: 30 minutes
-const CACHE_DURATION_MS = 30 * 60 * 1000;
+// Cache duration: 30 minutes (for fallback memory cache)
+const MEMORY_CACHE_DURATION_MS = 30 * 60 * 1000;
 
-// In-memory cache for news
-let newsCache: { data: any[]; timestamp: number } | null = null;
+// In-memory cache backup (if database fails)
+let memoryCache: { data: any[]; timestamp: number } | null = null;
 
 // Mock news data (fallback when API unavailable)
 const mockNewsData = [
@@ -128,27 +129,53 @@ async function fetchNewsFromAPI() {
   }
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    // Check cache first
-    if (newsCache && Date.now() - newsCache.timestamp < CACHE_DURATION_MS) {
-      console.log('Returning cached news data');
+    const { searchParams } = new URL(request.url);
+    const clearCache = searchParams.get('clearCache') === 'true';
+    
+    if (clearCache) {
+      console.log('Clearing memory cache as requested');
+      memoryCache = null;
+    }
+
+    // Önce database'den bugünkü haberleri kontrol et
+    if (!clearCache) {
+      const todaysNews = await getTodaysNews();
+      if (todaysNews && todaysNews.length > 0) {
+        console.log('Returning cached news from database');
+        return NextResponse.json({
+          success: true,
+          data: todaysNews,
+          source: 'database_cache',
+          timestamp: new Date().toISOString(),
+          count: todaysNews.length
+        });
+      }
+    }
+
+    // Database'de bugünkü haber yok, memory cache kontrol et
+    if (memoryCache && Date.now() - memoryCache.timestamp < MEMORY_CACHE_DURATION_MS) {
+      console.log('Returning data from memory cache');
       return NextResponse.json({
         success: true,
-        data: newsCache.data,
-        source: 'cache',
+        data: memoryCache.data,
+        source: 'memory_cache',
         timestamp: new Date().toISOString(),
-        cacheAge: Math.floor((Date.now() - newsCache.timestamp) / 1000 / 60) // minutes
+        cacheAge: Math.floor((Date.now() - memoryCache.timestamp) / 1000 / 60) // minutes
       });
     }
 
     console.log('Fetching fresh news data...');
     
-    // Fetch fresh news
+    // Fresh haber çek
     const newsData = await fetchNewsFromAPI();
     
-    // Update cache
-    newsCache = {
+    // Database'e kaydet (günlük cache)
+    const dbSaved = await saveNewsCache(newsData, NEWS_API_KEY ? 'newsapi' : 'mock');
+    
+    // Memory cache'e de kaydet (backup)
+    memoryCache = {
       data: newsData,
       timestamp: Date.now()
     };
@@ -158,21 +185,32 @@ export async function GET() {
       data: newsData,
       source: NEWS_API_KEY ? 'newsapi' : 'mock',
       timestamp: new Date().toISOString(),
-      count: newsData.length
+      count: newsData.length,
+      dbCached: dbSaved
     });
 
   } catch (error) {
     console.error('News API error:', error);
     
-    // Return cached data if available, otherwise mock data
-    const fallbackData = newsCache?.data || mockNewsData;
+    // Son çare: Memory cache'den dön
+    if (memoryCache && Date.now() - memoryCache.timestamp < MEMORY_CACHE_DURATION_MS) {
+      console.log('Returning data from memory cache as fallback');
+      return NextResponse.json({
+        success: false,
+        data: memoryCache.data,
+        source: 'memory_fallback',
+        error: error instanceof Error ? error.message : 'Unknown error',
+        timestamp: new Date().toISOString()
+      }, { status: 200 });
+    }
     
+    // En son çare: Mock data
     return NextResponse.json({
       success: false,
-      data: fallbackData,
-      source: 'fallback',
+      data: mockNewsData,
+      source: 'mock_fallback',
       error: error instanceof Error ? error.message : 'Unknown error',
       timestamp: new Date().toISOString()
-    }, { status: 200 }); // Return 200 with fallback data
+    }, { status: 200 });
   }
 }
