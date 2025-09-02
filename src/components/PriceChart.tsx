@@ -106,12 +106,17 @@ export default function PriceChart() {
     const shortTermPrediction = prediction.predictions.short_term;
     let targetPriceRange: { min: number; max: number } | null = null;
     
-    // Extract price range from AI prediction text (e.g., "4.600-4.700 TL bandında")
-    const priceRangeMatch = shortTermPrediction.match(/(\d+\.?\d*)-(\d+\.?\d*)/);
+    // Extract price range from AI prediction text (e.g., "4600-4700 TL bandında")
+    const priceRangeMatch = shortTermPrediction.match(/(\d{3,4}(?:\.\d+)?)-(\d{3,4}(?:\.\d+)?)/);
     if (priceRangeMatch) {
       const minPrice = parseFloat(priceRangeMatch[1]);
       const maxPrice = parseFloat(priceRangeMatch[2]);
-      targetPriceRange = { min: minPrice, max: maxPrice };
+      
+      // Validate that the price range makes sense
+      if (minPrice > 1000 && maxPrice > 1000 && maxPrice > minPrice) {
+        targetPriceRange = { min: minPrice, max: maxPrice };
+        console.log('AI Price Range detected:', targetPriceRange);
+      }
     }
     
     // Generate future data points based on AI prediction
@@ -134,16 +139,15 @@ export default function PriceChart() {
       if (targetPriceRange) {
         // Use AI's specific price range prediction
         const progress = i / futurePoints; // 0 to 1
-        const basePrice = lastPrice;
         const targetPrice = targetPriceRange.min + (targetPriceRange.max - targetPriceRange.min) * progress;
         
         // Smooth transition from current price to target
-        const transitionFactor = Math.min(progress * 2, 1); // Accelerate transition
-        predictedPrice = basePrice + (targetPrice - basePrice) * transitionFactor * confidence;
+        const transitionFactor = Math.min(progress * 1.5, 1); // More gradual transition
+        predictedPrice = lastPrice + (targetPrice - lastPrice) * transitionFactor * confidence;
       } else {
         // Fallback to trend-based prediction
         let priceChange = 0;
-        const volatility = 15; // Base volatility
+        const volatility = 20; // Base volatility
         
         if (trend.includes('yükseliş')) {
           // Upward trend: gradual increase with confidence
@@ -153,15 +157,18 @@ export default function PriceChart() {
           priceChange = -(volatility * confidence) * (i / futurePoints);
         } else {
           // Sideways trend: small fluctuations
-          priceChange = (Math.random() * 20 - 10) * confidence * 0.5;
+          priceChange = (Math.random() * 15 - 7.5) * confidence * 0.5;
         }
         
         predictedPrice = lastPrice + priceChange;
       }
       
       // Add some realistic noise based on confidence
-      const noise = (Math.random() - 0.5) * 10 * (1 - confidence);
+      const noise = (Math.random() - 0.5) * 8 * (1 - confidence);
       predictedPrice += noise;
+      
+      // Ensure price doesn't go below reasonable minimum
+      predictedPrice = Math.max(predictedPrice, lastPrice * 0.9);
       
       predictionData.push({
         time: timeFrame === '24h' ? 
