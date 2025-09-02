@@ -321,7 +321,7 @@ export default function PriceChart() {
         pointHoverRadius: 6,
         tension: 0.4,
       },
-      ...(aiPredictionData ? [{
+      ...(aiPredictionData && aiPrediction ? [{
         label: `AI Tahmin (${aiPrediction.confidence}% güven)`,
         data: [...Array(chartData.length).fill(null), ...aiPredictionData.map(d => d.price)],
         borderColor: '#10B981',
