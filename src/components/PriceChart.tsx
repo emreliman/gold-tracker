@@ -102,6 +102,18 @@ export default function PriceChart() {
     const confidence = prediction.confidence / 100;
     const trend = prediction.trend.toLowerCase();
     
+    // Parse short term prediction for target price range
+    const shortTermPrediction = prediction.predictions.short_term;
+    let targetPriceRange: { min: number; max: number } | null = null;
+    
+    // Extract price range from AI prediction text (e.g., "4.600-4.700 TL bandında")
+    const priceRangeMatch = shortTermPrediction.match(/(\d+\.?\d*)-(\d+\.?\d*)/);
+    if (priceRangeMatch) {
+      const minPrice = parseFloat(priceRangeMatch[1]);
+      const maxPrice = parseFloat(priceRangeMatch[2]);
+      targetPriceRange = { min: minPrice, max: maxPrice };
+    }
+    
     // Generate future data points based on AI prediction
     const futurePoints = timeFrame === '24h' ? 6 : timeFrame === '7d' ? 3 : 5;
     const predictionData: ChartData[] = [];
@@ -116,17 +128,40 @@ export default function PriceChart() {
         futureTime = new Date(time.getTime() + (i * 24 * 60 * 60 * 1000)); // +1 day
       }
       
-      // Calculate predicted price based on trend and confidence
-      let priceChange = 0;
-      if (trend.includes('yükseliş')) {
-        priceChange = (Math.random() * 50 + 20) * confidence; // +20-70 TL
-      } else if (trend.includes('düşüş')) {
-        priceChange = -(Math.random() * 50 + 20) * confidence; // -20-70 TL
+      // Calculate predicted price based on AI analysis
+      let predictedPrice: number;
+      
+      if (targetPriceRange) {
+        // Use AI's specific price range prediction
+        const progress = i / futurePoints; // 0 to 1
+        const basePrice = lastPrice;
+        const targetPrice = targetPriceRange.min + (targetPriceRange.max - targetPriceRange.min) * progress;
+        
+        // Smooth transition from current price to target
+        const transitionFactor = Math.min(progress * 2, 1); // Accelerate transition
+        predictedPrice = basePrice + (targetPrice - basePrice) * transitionFactor * confidence;
       } else {
-        priceChange = (Math.random() * 30 - 15) * confidence; // ±15 TL
+        // Fallback to trend-based prediction
+        let priceChange = 0;
+        const volatility = 15; // Base volatility
+        
+        if (trend.includes('yükseliş')) {
+          // Upward trend: gradual increase with confidence
+          priceChange = (volatility * confidence) * (i / futurePoints);
+        } else if (trend.includes('düşüş')) {
+          // Downward trend: gradual decrease with confidence
+          priceChange = -(volatility * confidence) * (i / futurePoints);
+        } else {
+          // Sideways trend: small fluctuations
+          priceChange = (Math.random() * 20 - 10) * confidence * 0.5;
+        }
+        
+        predictedPrice = lastPrice + priceChange;
       }
       
-      const predictedPrice = lastPrice + priceChange;
+      // Add some realistic noise based on confidence
+      const noise = (Math.random() - 0.5) * 10 * (1 - confidence);
+      predictedPrice += noise;
       
       predictionData.push({
         time: timeFrame === '24h' ? 

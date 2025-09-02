@@ -27,7 +27,7 @@ const mockAnalysisData = {
     { factor: "TCMB Politikaları", impact: "neutral", weight: 70 }
   ],
   predictions: {
-    short_term: "4.600-4.700 TL bandında",
+    short_term: "Mevcut fiyat: 4563.13 TL. 1-2 hafta içinde 4600-4700 TL bandında olacak",
     risk_level: "Orta"
   },
   lastUpdate: new Date().toISOString()
@@ -97,7 +97,7 @@ SADECE bu JSON formatında yanıt ver (kısa ve net):
     {"factor": "TCMB Politikaları", "impact": "positive|negative|neutral", "weight": 0-100}
   ],
   "predictions": {
-    "short_term": "1-2 hafta tahmini",
+    "short_term": "Mevcut fiyat: ${goldPriceData.current} TL. 1-2 hafta içinde XXXX-XXXX TL bandında olacak (spesifik fiyat aralığı ver)",
     "risk_level": "Düşük|Orta|Yüksek"
   }
 }
