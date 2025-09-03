@@ -102,6 +102,33 @@ export default function PriceChart() {
     const confidence = prediction.confidence / 100;
     const trend = prediction.trend.toLowerCase();
     
+    // Analyze historical data to understand current volatility and trend
+    const analyzeHistoricalTrend = (data: ChartData[]) => {
+      if (data.length < 3) return { volatility: 0.02, trendStrength: 0, avgChange: 0 };
+      
+      const prices = data.map(d => d.price);
+      const changes = [];
+      
+      for (let i = 1; i < prices.length; i++) {
+        const change = (prices[i] - prices[i-1]) / prices[i-1];
+        changes.push(change);
+      }
+      
+      const avgChange = changes.reduce((sum, change) => sum + change, 0) / changes.length;
+      const volatility = Math.sqrt(changes.reduce((sum, change) => sum + Math.pow(change - avgChange, 2), 0) / changes.length);
+      const trendStrength = Math.abs(avgChange);
+      
+      return { volatility, trendStrength, avgChange };
+    };
+    
+    const historicalAnalysis = analyzeHistoricalTrend(historicalData);
+    console.log('Historical Analysis:', {
+      volatility: historicalAnalysis.volatility,
+      trendStrength: historicalAnalysis.trendStrength,
+      avgChange: historicalAnalysis.avgChange,
+      lastPrice
+    });
+    
     // Parse short term prediction for target price range
     const shortTermPrediction = prediction.predictions.short_term;
     let targetPriceRange: { min: number; max: number } | null = null;
@@ -133,42 +160,45 @@ export default function PriceChart() {
         futureTime = new Date(time.getTime() + (i * 24 * 60 * 60 * 1000)); // +1 day
       }
       
-      // Calculate predicted price based on AI analysis
+      // Calculate predicted price based on AI analysis and historical data
       let predictedPrice: number;
       
       if (targetPriceRange) {
-        // Use AI's specific price range prediction
+        // Use AI's specific price range prediction but respect historical volatility
         const progress = i / futurePoints; // 0 to 1
-        const targetPrice = targetPriceRange.min + (targetPriceRange.max - targetPriceRange.min) * progress;
         
-        // Smooth transition from current price to target
-        const transitionFactor = Math.min(progress * 1.5, 1); // More gradual transition
+        // Calculate realistic target based on historical volatility
+        const maxHistoricalChange = historicalAnalysis.volatility * 3; // Max 3x historical volatility
+        const aiTargetChange = (targetPriceRange.max - lastPrice) / lastPrice;
+        const realisticTargetChange = Math.min(Math.abs(aiTargetChange), maxHistoricalChange) * Math.sign(aiTargetChange);
+        
+        const realisticTarget = lastPrice * (1 + realisticTargetChange);
+        const targetPrice = lastPrice + (realisticTarget - lastPrice) * progress;
+        
+        // Smooth transition with confidence
+        const transitionFactor = Math.min(progress * 1.2, 1);
         predictedPrice = lastPrice + (targetPrice - lastPrice) * transitionFactor * confidence;
       } else {
-        // Fallback to trend-based prediction
-        let priceChange = 0;
-        const volatility = 20; // Base volatility
+        // Fallback to trend-based prediction using historical data
+        const baseVolatility = historicalAnalysis.volatility || 0.02; // Default 2% volatility
+        const trendDirection = historicalAnalysis.avgChange > 0 ? 1 : historicalAnalysis.avgChange < 0 ? -1 : 0;
         
-        if (trend.includes('yükseliş')) {
-          // Upward trend: gradual increase with confidence
-          priceChange = (volatility * confidence) * (i / futurePoints);
-        } else if (trend.includes('düşüş')) {
-          // Downward trend: gradual decrease with confidence
-          priceChange = -(volatility * confidence) * (i / futurePoints);
-        } else {
-          // Sideways trend: small fluctuations
-          priceChange = (Math.random() * 15 - 7.5) * confidence * 0.5;
-        }
+        // Calculate realistic change based on historical patterns
+        const daysAhead = timeFrame === '24h' ? i / 24 : i; // Convert to days
+        const realisticChange = trendDirection * baseVolatility * daysAhead * confidence;
         
-        predictedPrice = lastPrice + priceChange;
+        predictedPrice = lastPrice * (1 + realisticChange);
       }
       
-      // Add some realistic noise based on confidence
-      const noise = (Math.random() - 0.5) * 8 * (1 - confidence);
+      // Add realistic noise based on historical volatility
+      const noise = (Math.random() - 0.5) * historicalAnalysis.volatility * lastPrice * (1 - confidence);
       predictedPrice += noise;
       
-      // Ensure price doesn't go below reasonable minimum
+      // Ensure price doesn't go below reasonable minimum (max 10% drop)
       predictedPrice = Math.max(predictedPrice, lastPrice * 0.9);
+      
+      // Ensure price doesn't go above reasonable maximum (max 15% increase)
+      predictedPrice = Math.min(predictedPrice, lastPrice * 1.15);
       
       predictionData.push({
         time: timeFrame === '24h' ? 
