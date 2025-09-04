@@ -83,6 +83,23 @@ export interface AnalysisCacheRecord {
   updated_at?: string
 }
 
+export interface AIPredictionRecord {
+  id?: number
+  prediction_date: string
+  prediction_time: string
+  timeframe: '24h' | '7d' | '1m'
+  current_price: number
+  ai_trend: string
+  ai_confidence: number
+  ai_prediction_text: string
+  predicted_prices: any[]
+  actual_prices?: any[]
+  accuracy_score?: number
+  prediction_source: string
+  created_at?: string
+  updated_at?: string
+}
+
 export interface GoldData {
   gramGold: {
     type: string
@@ -517,6 +534,143 @@ export async function saveAnalysisCache(
     return true;
   } catch (error) {
     console.error('Error saving analysis cache:', error);
+    return false;
+  }
+}
+
+// AI Predictions Functions
+export async function saveAIPrediction(
+  predictionData: Omit<AIPredictionRecord, 'id' | 'created_at' | 'updated_at'>
+): Promise<AIPredictionRecord | null> {
+  if (!supabase) {
+    console.log('Supabase not configured, skipping AI prediction save');
+    return null;
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('ai_predictions')
+      .insert([predictionData])
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error saving AI prediction:', error);
+      return null;
+    }
+
+    console.log('AI prediction saved successfully');
+    return data;
+  } catch (error) {
+    console.error('Error saving AI prediction:', error);
+    return null;
+  }
+}
+
+export async function getRecentAIPredictions(
+  timeframe: '24h' | '7d' | '1m',
+  limit: number = 10
+): Promise<AIPredictionRecord[]> {
+  if (!supabase) {
+    console.log('Supabase not configured, skipping AI predictions fetch');
+    return [];
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('ai_predictions')
+      .select('*')
+      .eq('timeframe', timeframe)
+      .order('prediction_time', { ascending: false })
+      .limit(limit);
+
+    if (error) {
+      console.error('Error fetching AI predictions:', error);
+      return [];
+    }
+
+    return data || [];
+  } catch (error) {
+    console.error('Error fetching AI predictions:', error);
+    return [];
+  }
+}
+
+export async function getAIPredictionStats(): Promise<any> {
+  if (!supabase) {
+    console.log('Supabase not configured, skipping AI prediction stats');
+    return null;
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('ai_prediction_stats')
+      .select('*');
+
+    if (error) {
+      console.error('Error fetching AI prediction stats:', error);
+      return null;
+  }
+
+    return data;
+  } catch (error) {
+    console.error('Error fetching AI prediction stats:', error);
+    return null;
+  }
+}
+
+export async function updatePredictionAccuracy(
+  predictionId: number,
+  actualPrices: any[]
+): Promise<boolean> {
+  if (!supabase) {
+    console.log('Supabase not configured, skipping accuracy update');
+    return false;
+  }
+
+  try {
+    // Get the prediction to calculate accuracy
+    const { data: prediction, error: fetchError } = await supabase
+      .from('ai_predictions')
+      .select('predicted_prices')
+      .eq('id', predictionId)
+      .single();
+
+    if (fetchError) {
+      console.error('Error fetching prediction for accuracy calculation:', fetchError);
+      return false;
+    }
+
+    // Calculate accuracy using the database function
+    const { data: accuracyResult, error: accuracyError } = await supabase
+      .rpc('calculate_prediction_accuracy', {
+        predicted_prices: prediction.predicted_prices,
+        actual_prices: actualPrices
+      });
+
+    if (accuracyError) {
+      console.error('Error calculating accuracy:', accuracyError);
+      return false;
+    }
+
+    // Update the prediction with actual prices and accuracy
+    const { error: updateError } = await supabase
+      .from('ai_predictions')
+      .update({
+        actual_prices: actualPrices,
+        accuracy_score: accuracyResult
+      })
+      .eq('id', predictionId);
+
+    if (updateError) {
+      console.error('Error updating prediction accuracy:', updateError);
+      return false;
+    }
+
+    console.log(`Prediction accuracy updated: ${accuracyResult}%`);
+    return true;
+  } catch (error) {
+    console.error('Error updating prediction accuracy:', error);
     return false;
   }
 }

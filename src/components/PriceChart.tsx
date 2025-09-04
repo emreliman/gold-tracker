@@ -13,6 +13,7 @@ import {
   Filler
 } from 'chart.js';
 import { Line } from 'react-chartjs-2';
+import { saveAIPrediction, getRecentAIPredictions, getAIPredictionStats } from '@/lib/supabase';
 
 // Register Chart.js components
 ChartJS.register(
@@ -42,10 +43,28 @@ interface AIPrediction {
   };
 }
 
+interface HistoricalAIPrediction {
+  id: number;
+  prediction_date: string;
+  prediction_time: string;
+  timeframe: string;
+  current_price: number;
+  ai_trend: string;
+  ai_confidence: number;
+  ai_prediction_text: string;
+  predicted_prices: any[];
+  actual_prices?: any[];
+  accuracy_score?: number;
+  prediction_source: string;
+  created_at: string;
+}
+
 export default function PriceChart() {
   const [timeFrame, setTimeFrame] = useState<'24h' | '7d' | '1m'>('24h');
   const [chartData, setChartData] = useState<ChartData[]>([]);
   const [aiPrediction, setAiPrediction] = useState<AIPrediction | null>(null);
+  const [historicalPredictions, setHistoricalPredictions] = useState<HistoricalAIPrediction[]>([]);
+  const [predictionStats, setPredictionStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
     high: 0,
@@ -259,9 +278,40 @@ export default function PriceChart() {
       
       if (result.success && result.data) {
         setAiPrediction(result.data);
+        
+        // Save AI prediction to database
+        if (chartData.length > 0) {
+          const predictionData = generateAIPredictionData(chartData, result.data);
+          if (predictionData) {
+            await saveAIPrediction({
+              prediction_date: new Date().toISOString().split('T')[0],
+              prediction_time: new Date().toISOString(),
+              timeframe: timeFrame,
+              current_price: chartData[chartData.length - 1].price,
+              ai_trend: result.data.trend,
+              ai_confidence: result.data.confidence,
+              ai_prediction_text: result.data.predictions.short_term,
+              predicted_prices: predictionData,
+              prediction_source: 'gemini'
+            });
+          }
+        }
       }
     } catch (error) {
       console.error('Error fetching AI analysis:', error);
+    }
+  };
+
+  const fetchHistoricalPredictions = async () => {
+    try {
+      const predictions = await getRecentAIPredictions(timeFrame, 5);
+      setHistoricalPredictions(predictions);
+      
+      // Get prediction stats
+      const stats = await getAIPredictionStats();
+      setPredictionStats(stats);
+    } catch (error) {
+      console.error('Error fetching historical predictions:', error);
     }
   };
 
@@ -289,7 +339,8 @@ export default function PriceChart() {
     // Fetch both historical data and AI analysis
     Promise.all([
       fetchHistoricalData(timeFrame),
-      fetchAIAnalysis()
+      fetchAIAnalysis(),
+      fetchHistoricalPredictions()
     ]).then(([historicalResult]) => {
       console.log(`Chart data loaded:`, historicalResult);
       setChartData(historicalResult.data);
@@ -376,39 +427,71 @@ export default function PriceChart() {
     allLabels.push(...aiPredictionData.map(d => d.time));
   }
 
+  // Create datasets array
+  const datasets = [
+    {
+      label: 'Gerçek Fiyat',
+      data: chartData.map(d => d.price),
+      borderColor: '#eca413',
+      backgroundColor: 'rgba(236, 164, 19, 0.1)',
+      borderWidth: 2,
+      fill: true,
+      pointBackgroundColor: '#eca413',
+      pointBorderColor: '#221c11',
+      pointBorderWidth: 2,
+      pointRadius: 4,
+      pointHoverRadius: 6,
+      tension: 0.4,
+    }
+  ];
+
+  // Add current AI prediction
+  if (aiPredictionData && aiPrediction) {
+    datasets.push({
+      label: `AI Tahmin (${aiPrediction.confidence}% güven)`,
+      data: [...Array(chartData.length).fill(null), ...aiPredictionData.map(d => d.price)],
+      borderColor: '#10B981',
+      backgroundColor: 'rgba(16, 185, 129, 0.05)',
+      borderWidth: 2,
+      borderDash: [5, 5],
+      fill: false,
+      pointBackgroundColor: '#10B981',
+      pointBorderColor: '#221c11',
+      pointBorderWidth: 2,
+      pointRadius: 3,
+      pointHoverRadius: 5,
+      tension: 0.4,
+    });
+  }
+
+  // Add historical predictions (completed ones with accuracy)
+  historicalPredictions
+    .filter(pred => pred.accuracy_score !== null && pred.accuracy_score !== undefined)
+    .slice(0, 3) // Show max 3 historical predictions
+    .forEach((historicalPred, index) => {
+      const colors = ['#8B5CF6', '#F59E0B', '#EF4444']; // Purple, Orange, Red
+      const color = colors[index % colors.length];
+      
+      datasets.push({
+        label: `Geçmiş Tahmin ${index + 1} (${historicalPred.accuracy_score?.toFixed(1)}% doğruluk)`,
+        data: [...Array(chartData.length).fill(null), ...historicalPred.predicted_prices.map((p: any) => p.price)],
+        borderColor: color,
+        backgroundColor: `${color}20`,
+        borderWidth: 1,
+        borderDash: [3, 3],
+        fill: false,
+        pointBackgroundColor: color,
+        pointBorderColor: '#221c11',
+        pointBorderWidth: 1,
+        pointRadius: 2,
+        pointHoverRadius: 4,
+        tension: 0.4,
+      });
+    });
+
   const data = {
     labels: allLabels,
-    datasets: [
-      {
-        label: 'Gerçek Fiyat',
-        data: chartData.map(d => d.price),
-        borderColor: '#eca413',
-        backgroundColor: 'rgba(236, 164, 19, 0.1)',
-        borderWidth: 2,
-        fill: true,
-        pointBackgroundColor: '#eca413',
-        pointBorderColor: '#221c11',
-        pointBorderWidth: 2,
-        pointRadius: 4,
-        pointHoverRadius: 6,
-        tension: 0.4,
-      },
-      ...(aiPredictionData && aiPrediction ? [{
-        label: `AI Tahmin (${aiPrediction.confidence}% güven)`,
-        data: [...Array(chartData.length).fill(null), ...aiPredictionData.map(d => d.price)],
-        borderColor: '#10B981',
-        backgroundColor: 'rgba(16, 185, 129, 0.05)',
-        borderWidth: 2,
-        borderDash: [5, 5],
-        fill: false,
-        pointBackgroundColor: '#10B981',
-        pointBorderColor: '#221c11',
-        pointBorderWidth: 2,
-        pointRadius: 3,
-        pointHoverRadius: 5,
-        tension: 0.4,
-      }] : [])
-    ],
+    datasets: datasets,
   };
 
   const timeFrameLabels = {
@@ -464,6 +547,26 @@ export default function PriceChart() {
             <span className="text-gray-400">Trend:</span> {aiPrediction.trend} | 
             <span className="text-gray-400 ml-2">Kısa Vade:</span> {aiPrediction.predictions.short_term} | 
             <span className="text-gray-400 ml-2">Risk:</span> {aiPrediction.predictions.risk_level}
+          </div>
+        </div>
+      )}
+
+      {/* AI Prediction Stats */}
+      {predictionStats && predictionStats.length > 0 && (
+        <div className="mb-4 p-3 bg-[#332b19] rounded-lg border border-[#483c23]">
+          <div className="flex items-center space-x-2 mb-2">
+            <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
+            <span className="text-sm font-medium text-blue-400">AI Tahmin İstatistikleri</span>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+            {predictionStats.map((stat: any, index: number) => (
+              <div key={index} className="text-center">
+                <div className="text-gray-400">{stat.timeframe === '24h' ? '24 Saat' : 
+                  stat.timeframe === '7d' ? '7 Gün' : '1 Ay'}</div>
+                <div className="font-semibold text-green-400">{stat.avg_accuracy?.toFixed(1) || 'N/A'}%</div>
+                <div className="text-gray-500">{stat.total_predictions} tahmin</div>
+              </div>
+            ))}
           </div>
         </div>
       )}
