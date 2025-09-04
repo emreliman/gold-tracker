@@ -288,12 +288,14 @@ export default function PriceChart() {
 
   const fetchHistoricalPredictions = async () => {
     try {
-      const predictions = await getRecentAIPredictions(timeFrame, 5);
-      setHistoricalPredictions(predictions);
+      // Fetch from API instead of direct Supabase call
+      const response = await fetch(`/api/ai-predictions?timeframe=${timeFrame}&limit=5`);
+      const result = await response.json();
       
-      // Get prediction stats
-      const stats = await getAIPredictionStats();
-      setPredictionStats(stats);
+      if (result.success && result.data) {
+        setHistoricalPredictions(result.data.predictions);
+        setPredictionStats(result.data.stats);
+      }
     } catch (error) {
       console.error('Error fetching historical predictions:', error);
     }
@@ -456,21 +458,41 @@ export default function PriceChart() {
       const colors = ['#8B5CF6', '#F59E0B', '#EF4444']; // Purple, Orange, Red
       const color = colors[index % colors.length];
       
-      datasets.push({
-        label: `Geçmiş Tahmin ${index + 1} (${historicalPred.accuracy_score?.toFixed(1)}% doğruluk)`,
-        data: [...Array(chartData.length).fill(null), ...historicalPred.predicted_prices.map((p: any) => p.price)],
-        borderColor: color,
-        backgroundColor: `${color}20`,
-        borderWidth: 1,
-        borderDash: [3, 3],
-        fill: false,
-        pointBackgroundColor: color,
-        pointBorderColor: '#221c11',
-        pointBorderWidth: 1,
-        pointRadius: 2,
-        pointHoverRadius: 4,
-        tension: 0.4,
-      } as any);
+      // Calculate how many historical data points to show based on prediction age
+      const predictionDate = new Date(historicalPred.prediction_time);
+      const now = new Date();
+      const daysSincePrediction = Math.floor((now.getTime() - predictionDate.getTime()) / (1000 * 60 * 60 * 24));
+      
+      // Show historical prediction data that overlaps with current chart data
+      const historicalPredictionData = historicalPred.predicted_prices.map((p: any) => p.price);
+      const historicalLabels = historicalPred.predicted_prices.map((p: any) => p.time);
+      
+      // Create data array that aligns with current chart labels
+      const alignedData = allLabels.map(label => {
+        const matchingIndex = historicalLabels.findIndex(hLabel => hLabel === label);
+        return matchingIndex >= 0 ? historicalPredictionData[matchingIndex] : null;
+      });
+      
+      // Only show if there's overlapping data
+      const hasOverlappingData = alignedData.some(price => price !== null);
+      
+      if (hasOverlappingData) {
+        datasets.push({
+          label: `Geçmiş Tahmin ${index + 1} (${historicalPred.accuracy_score?.toFixed(1)}% doğruluk)`,
+          data: alignedData,
+          borderColor: color,
+          backgroundColor: `${color}20`,
+          borderWidth: 1,
+          borderDash: [3, 3],
+          fill: false,
+          pointBackgroundColor: color,
+          pointBorderColor: '#221c11',
+          pointBorderWidth: 1,
+          pointRadius: 2,
+          pointHoverRadius: 4,
+          tension: 0.4,
+        } as any);
+      }
     });
 
   const data = {

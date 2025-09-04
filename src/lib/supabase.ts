@@ -621,7 +621,8 @@ export async function getAIPredictionStats(): Promise<any> {
 
 export async function updatePredictionAccuracy(
   predictionId: number,
-  actualPrices: any[]
+  actualPrices: any[],
+  tolerancePercent: number = 2.0
 ): Promise<boolean> {
   if (!supabase) {
     console.log('Supabase not configured, skipping accuracy update');
@@ -641,11 +642,12 @@ export async function updatePredictionAccuracy(
       return false;
     }
 
-    // Calculate accuracy using the database function
+    // Calculate accuracy using the database function with tolerance
     const { data: accuracyResult, error: accuracyError } = await supabase
       .rpc('calculate_prediction_accuracy', {
         predicted_prices: prediction.predicted_prices,
-        actual_prices: actualPrices
+        actual_prices: actualPrices,
+        tolerance_percent: tolerancePercent
       });
 
     if (accuracyError) {
@@ -667,7 +669,7 @@ export async function updatePredictionAccuracy(
       return false;
     }
 
-    console.log(`Prediction accuracy updated: ${accuracyResult}%`);
+    console.log(`Prediction accuracy updated: ${accuracyResult}% (with ${tolerancePercent}% tolerance)`);
     return true;
   } catch (error) {
     console.error('Error updating prediction accuracy:', error);

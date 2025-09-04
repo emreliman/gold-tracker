@@ -71,10 +71,11 @@ GROUP BY timeframe;
 GRANT SELECT ON recent_ai_predictions TO anon, authenticated;
 GRANT SELECT ON ai_prediction_stats TO anon, authenticated;
 
--- Simple function to calculate prediction accuracy
+-- Simple function to calculate prediction accuracy with tolerance
 CREATE OR REPLACE FUNCTION calculate_prediction_accuracy(
     predicted_prices JSONB,
-    actual_prices JSONB
+    actual_prices JSONB,
+    tolerance_percent DECIMAL DEFAULT 2.0 -- 2% tolerance by default
 ) RETURNS DECIMAL(5,2) AS $$
 DECLARE
     total_error DECIMAL(10,2) := 0;
@@ -83,7 +84,11 @@ DECLARE
     actual_price DECIMAL(10,2);
     price_error DECIMAL(10,2);
     accuracy DECIMAL(5,2);
+    tolerance_factor DECIMAL(5,2);
 BEGIN
+    -- Set tolerance factor (higher tolerance = more forgiving)
+    tolerance_factor := tolerance_percent / 100.0;
+    
     -- Loop through predicted prices and find matching actual prices
     FOR i IN 0..jsonb_array_length(predicted_prices)-1 LOOP
         predicted_price := (predicted_prices->i->>'price')::DECIMAL(10,2);
@@ -95,6 +100,15 @@ BEGIN
                 
                 -- Calculate percentage error
                 price_error := ABS(predicted_price - actual_price) / actual_price * 100;
+                
+                -- Apply tolerance: if error is within tolerance, count as correct
+                IF price_error <= tolerance_percent THEN
+                    price_error := 0; -- No penalty for predictions within tolerance
+                ELSE
+                    -- Apply penalty only for errors outside tolerance
+                    price_error := price_error - tolerance_percent;
+                END IF;
+                
                 total_error := total_error + price_error;
                 count_points := count_points + 1;
                 EXIT;
