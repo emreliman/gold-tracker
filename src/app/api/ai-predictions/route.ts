@@ -21,6 +21,12 @@ export async function GET(request: Request) {
     // For each prediction without accuracy, try to calculate it
     for (const prediction of predictionsToUpdate) {
       try {
+        // Check if prediction has an ID
+        if (!prediction.id) {
+          console.log('Skipping prediction without ID');
+          continue;
+        }
+        
         // Get current gold price data to compare with prediction
         const goldResponse = await fetch('http://localhost:3000/api/gold');
         const goldData = await goldResponse.json();
