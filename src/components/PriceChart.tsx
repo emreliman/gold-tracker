@@ -358,46 +358,31 @@ export default function PriceChart() {
       // For testing, use mock data if no real predictions exist
       const testPredictions = createTestHistoricalPredictions();
       
-      // Try to fetch from API first
+      // Force use test data for now
+      console.log('Using test historical predictions');
+      setHistoricalPredictions(testPredictions);
+      setPredictionStats([
+        {
+          timeframe: '24h',
+          total_predictions: 2,
+          avg_accuracy: 81.85,
+          avg_confidence: 67.5,
+          high_accuracy_count: 1,
+          medium_accuracy_count: 1,
+          low_accuracy_count: 0
+        }
+      ]);
+      
+      // Try to fetch from API in background (for future use)
       try {
         const response = await fetch(`/api/ai-predictions?timeframe=${timeFrame}&limit=5`);
         const result = await response.json();
         
         if (result.success && result.data && result.data.predictions.length > 0) {
-          console.log('Real historical predictions loaded:', result.data.predictions);
-          console.log('Prediction stats:', result.data.stats);
-          setHistoricalPredictions(result.data.predictions);
-          setPredictionStats(result.data.stats);
-        } else {
-          // Use test data if no real predictions
-          console.log('Using test historical predictions');
-          setHistoricalPredictions(testPredictions);
-          setPredictionStats([
-            {
-              timeframe: '24h',
-              total_predictions: 2,
-              avg_accuracy: 81.85,
-              avg_confidence: 67.5,
-              high_accuracy_count: 1,
-              medium_accuracy_count: 1,
-              low_accuracy_count: 0
-            }
-          ]);
+          console.log('Real historical predictions also available:', result.data.predictions);
         }
       } catch (apiError) {
-        console.log('API error, using test data:', apiError);
-        setHistoricalPredictions(testPredictions);
-        setPredictionStats([
-          {
-            timeframe: '24h',
-            total_predictions: 2,
-            avg_accuracy: 81.85,
-            avg_confidence: 67.5,
-            high_accuracy_count: 1,
-            medium_accuracy_count: 1,
-            low_accuracy_count: 0
-          }
-        ]);
+        console.log('API not available yet, using test data');
       }
     } catch (error) {
       console.error('Error fetching historical predictions:', error);
@@ -561,9 +546,14 @@ export default function PriceChart() {
       const colors = ['#8B5CF6', '#F59E0B', '#EF4444']; // Purple, Orange, Red
       const color = colors[index % colors.length];
       
+      console.log(`Processing historical prediction ${index + 1}:`, historicalPred);
+      
       // Show historical prediction data that overlaps with current chart data
       const historicalPredictionData = historicalPred.predicted_prices.map((p: any) => p.price);
       const historicalLabels = historicalPred.predicted_prices.map((p: any) => p.time);
+      
+      console.log('Historical prediction data:', historicalPredictionData);
+      console.log('Historical labels:', historicalLabels);
       
       // Create data array that aligns with current chart labels
       const alignedData = allLabels.map(label => {
@@ -590,6 +580,8 @@ export default function PriceChart() {
         return null;
       });
       
+      console.log('Aligned data:', alignedData);
+      
       // Only show if there's overlapping data
       const hasOverlappingData = alignedData.some(price => price !== null);
       
@@ -609,6 +601,8 @@ export default function PriceChart() {
           pointHoverRadius: 4,
           tension: 0.4,
         } as any);
+      } else {
+        console.log(`No overlapping data for historical prediction ${index + 1}`);
       }
     });
 
