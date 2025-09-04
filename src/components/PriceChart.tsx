@@ -15,6 +15,13 @@ import {
 import { Line } from 'react-chartjs-2';
 import { saveAIPrediction, getRecentAIPredictions, getAIPredictionStats, AIPredictionRecord } from '@/lib/supabase';
 
+// Extend Chart.js types to include borderDash
+declare module 'chart.js' {
+  interface LineOptions {
+    borderDash?: number[];
+  }
+}
+
 // Register Chart.js components
 ChartJS.register(
   CategoryScale,
@@ -437,7 +444,6 @@ export default function PriceChart() {
       borderColor: '#10B981',
       backgroundColor: 'rgba(16, 185, 129, 0.05)',
       borderWidth: 2,
-      borderDash: [5, 5],
       fill: false,
       pointBackgroundColor: '#10B981',
       pointBorderColor: '#221c11',
@@ -445,7 +451,7 @@ export default function PriceChart() {
       pointRadius: 3,
       pointHoverRadius: 5,
       tension: 0.4,
-    });
+    } as any);
   }
 
   // Add historical predictions (completed ones with accuracy)
@@ -462,7 +468,6 @@ export default function PriceChart() {
         borderColor: color,
         backgroundColor: `${color}20`,
         borderWidth: 1,
-        borderDash: [3, 3],
         fill: false,
         pointBackgroundColor: color,
         pointBorderColor: '#221c11',
@@ -470,7 +475,7 @@ export default function PriceChart() {
         pointRadius: 2,
         pointHoverRadius: 4,
         tension: 0.4,
-      });
+      } as any);
     });
 
   const data = {
