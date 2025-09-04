@@ -13,7 +13,7 @@ import {
   Filler
 } from 'chart.js';
 import { Line } from 'react-chartjs-2';
-import { saveAIPrediction, getRecentAIPredictions, getAIPredictionStats } from '@/lib/supabase';
+import { saveAIPrediction, getRecentAIPredictions, getAIPredictionStats, AIPredictionRecord } from '@/lib/supabase';
 
 // Register Chart.js components
 ChartJS.register(
@@ -43,27 +43,11 @@ interface AIPrediction {
   };
 }
 
-interface HistoricalAIPrediction {
-  id: number;
-  prediction_date: string;
-  prediction_time: string;
-  timeframe: string;
-  current_price: number;
-  ai_trend: string;
-  ai_confidence: number;
-  ai_prediction_text: string;
-  predicted_prices: any[];
-  actual_prices?: any[];
-  accuracy_score?: number;
-  prediction_source: string;
-  created_at: string;
-}
-
 export default function PriceChart() {
   const [timeFrame, setTimeFrame] = useState<'24h' | '7d' | '1m'>('24h');
   const [chartData, setChartData] = useState<ChartData[]>([]);
   const [aiPrediction, setAiPrediction] = useState<AIPrediction | null>(null);
-  const [historicalPredictions, setHistoricalPredictions] = useState<HistoricalAIPrediction[]>([]);
+  const [historicalPredictions, setHistoricalPredictions] = useState<AIPredictionRecord[]>([]);
   const [predictionStats, setPredictionStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
