@@ -44,9 +44,9 @@ interface AIPrediction {
 }
 
 // Test function to create sample historical predictions for debugging
-const createTestHistoricalPredictions = () => {
+const createTestHistoricalPredictions = (): AIPredictionRecord[] => {
   const now = new Date();
-  const testPredictions = [
+  const testPredictions: AIPredictionRecord[] = [
     {
       id: 1,
       prediction_date: now.toISOString().split('T')[0],
